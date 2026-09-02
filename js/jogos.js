@@ -1,0 +1,20 @@
+document.addEventListener('DOMContentLoaded', function () {
+    const board = document.querySelector('[data-game]'); if (!board) return;
+    const tipo = board.dataset.game; const nome = board.dataset.name; let dificuldade = 'facil'; let questoes = []; let indice = 0; let acertos = 0; let erros = 0; let pontos = 0; let sequencia = 0;
+    const el = (seletor) => board.querySelector(seletor);
+    function numero(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function criarQuestao() {
+        let a,b,resposta,pergunta,explicacao;
+        const escala = dificuldade === 'facil' ? 1 : dificuldade === 'medio' ? 2 : 3;
+        if (tipo === 'inteiros') { a=numero(-10*escala,10*escala); b=numero(-10*escala,10*escala); resposta=a+b; pergunta=`${a} ${b<0?'- '+Math.abs(b):'+ '+b} = ?`; explicacao=`Some os sinais iguais normalmente. Com sinais diferentes, subtraia os módulos e mantenha o sinal do maior módulo: ${a} + (${b}) = ${resposta}.`; }
+        if (tipo === 'equacoes') { const x=numero(1,8*escala); const coef=numero(2,4); const termo=numero(1,10*escala); resposta=x; pergunta=`${coef}x + ${termo} = ${coef*x+termo}`; explicacao=`Subtraia ${termo} dos dois lados e divida o resultado por ${coef}: x = ${resposta}.`; }
+        if (tipo === 'loja') { const preco=numero(5,10)*10; const porcentagem=numero(1,4)*5; resposta=tipo && Math.round(preco*(1-porcentagem/100)); pergunta=`Uma camiseta custa R$ ${preco} e tem ${porcentagem}% de desconto. Preço final?`; explicacao=`O desconto é ${preco*porcentagem/100}. Então ${preco} - ${preco*porcentagem/100} = R$ ${resposta}.`; }
+        if (tipo === 'graficos') { const valores=[numero(2,8),numero(2,8),numero(2,8),numero(2,8)]; const maior=Math.max(...valores); resposta=valores.indexOf(maior)+1; pergunta=`No gráfico, as colunas A, B, C e D têm ${valores.join(', ')} unidades. Qual coluna é a maior? (responda 1, 2, 3 ou 4)`; explicacao=`A maior quantidade é ${maior}, que está na coluna ${['A','B','C','D'][resposta-1]}.`; }
+        return {pergunta,resposta,explicacao};
+    }
+    function iniciar() { dificuldade=el('#dificuldade').value; questoes=Array.from({length:5},criarQuestao); indice=0; acertos=0;erros=0;pontos=0;sequencia=0; el('.start-screen').hidden=true;el('.play-screen').hidden=false; mostrar(); }
+    function mostrar() { const q=questoes[indice]; el('.question').textContent=q.pergunta; el('.answer').value=''; el('.feedback').textContent=`Desafio ${indice+1} de 5`; el('.feedback').className='feedback'; el('.answer').focus(); }
+    function responder() { const q=questoes[indice]; const valor=Number(el('.answer').value); if (el('.answer').value.trim()==='' || Number.isNaN(valor)) return; const correto=valor===q.resposta; if(correto){acertos++;sequencia++;pontos+=10+(sequencia>=3?5:0);el('.feedback').textContent=`Acertou! +${sequencia>=3?15:10} pontos. Sequência: ${sequencia}`;el('.feedback').className='feedback good';}else{erros++;sequencia=0;el('.feedback').innerHTML=`<strong>Quase!</strong> ${q.explicacao}`;el('.feedback').className='feedback bad';} el('.answer').disabled=true;el('.submit').disabled=true; setTimeout(function(){indice++; if(indice>=5) finalizar(); else {el('.answer').disabled=false;el('.submit').disabled=false;mostrar();}}, correto?700:1800); }
+    function finalizar(){ el('.play-screen').hidden=true;el('.result-screen').hidden=false;el('.final-score').textContent=pontos;el('.final-detail').textContent=`${acertos} acertos e ${erros} erros`; fetch('../api/salvar_resultado.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jogo:nome,dificuldade,acertos,erros,pontuacao:pontos})}).then(r=>r.json()).then(d=>{el('.save-message').textContent=d.ok?`+${d.xpGanho} XP. Você está no nível ${d.nivel}.`:'Partida concluída, mas não foi possível atualizar o XP.';}).catch(()=>el('.save-message').textContent='Partida concluída. Verifique a conexão com o servidor.'); }
+    el('.start').addEventListener('click',iniciar);el('.submit').addEventListener('click',responder);el('.answer').addEventListener('keydown',e=>{if(e.key==='Enter')responder();});
+});
